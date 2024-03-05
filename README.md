@@ -7,7 +7,7 @@
 2. API 문서
 
 -   [Scramble library](https://scramble.dedoc.co/) 사용
--   {domain}/docs 에서 endpoint 및 schema 참조 가능
+-   {domain}/docs/api 에서 endpoint 및 schema 참조 가능
 
 3. Test
 
