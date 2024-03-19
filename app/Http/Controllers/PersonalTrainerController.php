@@ -2,28 +2,11 @@
 
 namespace App\Http\Controllers;
 
+use App\Services\PersonalTrainerService;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Http\Resources\Json\JsonResource;
 use Illuminate\Support\Facades\Validator;
-
-class PersonalSolution extends JsonResource
-{
-    public $solution;
-    public function __construct($solution)
-    {
-        $this->solution = $solution;
-    }
-
-    public function toArray(Request $request)
-    {
-        return [
-            'status' => '200',
-            'message' => 'Success',
-            /* @var string[] $solution*/
-            'solution' => $this->solution
-        ];
-    }
-}
+use Illuminate\Validation\ValidationException;
 
 
 class PersonalTrainerController extends Controller
@@ -31,8 +14,9 @@ class PersonalTrainerController extends Controller
     /**
      * Training Plan을 Return 합니다.
      * @param Request $request
+     * @throws ValidationException
      */
-    public function getTrainingPlan(Request $request): PersonalSolution
+    public function getTrainingPlan(Request $request, PersonalTrainerService $personalTrainerService): PersonalSolution|JsonResponse
     {
         $validator = Validator::make($request->all(), [
             'type' => 'string|in:DIET,FITNESS',
@@ -51,8 +35,7 @@ class PersonalTrainerController extends Controller
         }
 
         $validated = $validator->validated();
-
-        $personalSolution = app('personalTrainer')->getPersonalSolution($validated);
+        $personalSolution = $personalTrainerService->getPersonalSolution($validated);
         /**
          * 맞춤형 솔루션을 응답합니다.
          */
