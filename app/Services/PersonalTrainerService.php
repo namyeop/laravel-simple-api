@@ -2,72 +2,13 @@
 
 namespace App\Services;
 
-use Faker\Provider\ar_EG\Person;
+use Illuminate\Support\Collection;
 
-abstract class PersonalTrainer
-{
-    abstract public function getTrainingPlan(array $tags);
-}
-
-class DietExpert extends PersonalTrainer
-{
-    private $tagSolutions = [
-        "enough_time" => ["Intermittent Fasting"],
-        "strong_will" => ["Intermittent Fasting"],
-        "enough_money" => ["LCHF"]
-    ];
-
-    public function getTrainingPlan(array $tags)
-    {
-        $solutions = [];
-        foreach ($tags as $tag) {
-            if (isset($this->tagSolutions[$tag])) {
-                $solutions = array_merge($solutions, $this->tagSolutions[$tag]);
-            }
-        }
-        return array_unique($solutions);
-    }
-}
-
-class FitnessCoach extends PersonalTrainer
-{
-    private $tagSolutions = [
-        "enough_time" => ["Strength"],
-        "strong_will" => ["Crossfit", "Cardio Exercise", 'Strength'],
-        "enough_money" => ["Crossfit", "Spinning"]
-    ];
-
-    public function getTrainingPlan(array $tags)
-    {
-        $solutions = [];
-        foreach ($tags as $tag) {
-            if (isset($this->tagSolutions[$tag])) {
-                $solutions = array_merge($solutions, $this->tagSolutions[$tag]);
-            }
-        }
-        return array_unique($solutions);
-    }
-}
-
-class PersonalTrainerFactory
-{
-    public static $trainers = [
-        'DIET' => DietExpert::class,
-        'FITNESS' => FitnessCoach::class,
-    ];
-
-    public static function make($type)
-    {
-        if (isset(self::$trainers[$type])) {
-            return new self::$trainers[$type];
-        } else {
-            return;
-        }
-    }
-}
 
 class PersonalTrainerService
 {
+    private array $originalSolution = ['Intermittent Fasting', 'LCHF', 'Strength', 'Crossfit', 'Cardio Exercise', 'Spinning'];
+
     /**
      * @param array  $validatedParams
      * @return array
@@ -76,30 +17,44 @@ class PersonalTrainerService
     public function getPersonalSolution(array $validatedParams): array
     {
         $type = $validatedParams['type'] ?? null;
-        $tag = $validatedParams['tag'];
+        $tag = collect($validatedParams['tag']?? null);
+        $solutions = $this->getOriginalSolution();
 
-        $originalSolution = ['Intermittent Fasting', 'LCHF', 'Strength', 'Crossfit', 'Cardio Exercise', 'Spinning'];
+        if ($this->isTypeValid($type)) {
+            $newSolution = $this->getTrainingSolution($type, $tag);
+            $solutions->add($newSolution);
 
-        if ($type) {
-            $personalTrainer = PersonalTrainerFactory::make($type);
-            $solution = $personalTrainer->getTrainingPlan($tag);
-
-            $differedSolution = array_diff($originalSolution, $solution);
-
-            $result = array_merge($solution, $differedSolution);
-
-            return $solution;
+            return $solutions->unique()->toArray();
         } else {
-            $solutions = [];
-            foreach (PersonalTrainerFactory::$trainers as $trainerClass) {
+            $trainersCollection = collect(PersonalTrainerFactory::$trainers);
+
+            $solutionsCollection = $trainersCollection->flatMap(function ($trainerClass) use ($tag) {
                 $trainer = new $trainerClass;
-                $solutions = array_merge($solutions, $trainer->getTrainingPlan($tag));
+                return $trainer->getTrainingPlan($tag);
+            });
 
-                $differedSolution = array_diff($originalSolution, $solutions);
-
-                $result = array_merge($solutions, $differedSolution);
-            }
-            return array_unique($result);
+            return $solutions->merge($solutionsCollection)->unique->toArray();
         }
     }
+
+    private function isTypeValid(?string $type): bool
+    {
+        return !is_null($type);
+    }
+
+    private function getOriginalSolution(): Collection
+    {
+        return collect($this->originalSolution);
+    }
+    private function getTrainingSolution(string $type, Collection $tag): Collection
+    {
+        $personalTrainer = PersonalTrainerFactory::make($type);
+
+        if ($personalTrainer instanceof PersonalTrainer) {
+            return $personalTrainer->getTrainingPlan($tag);
+        }
+
+        return new Collection();
+    }
+
 }
